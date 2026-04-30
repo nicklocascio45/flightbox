@@ -1,0 +1,12 @@
+# temporary
+esp32-mqtt/
+tft-display-hello/
+api-data/
+devops/
+
+.DS_Store
+.vscode/
+.venv/
+*.bkp
+*.pdf
+__pycache__/
