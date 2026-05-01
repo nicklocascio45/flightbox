@@ -10,3 +10,4 @@ devops/
 *.bkp
 *.pdf
 __pycache__/
+.env
