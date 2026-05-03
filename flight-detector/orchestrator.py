@@ -24,12 +24,15 @@ def detect():
         client_id=OPENSKY_CLIENT_ID,
         client_secret=OPENSKY_CLIENT_SECRET
     )
-    opensky_client.search_box(
+    state_vectors = opensky_client.search_box(
         lat_min=SEARCH_LAT_MIN,
         lng_min=SEARCH_LNG_MIN,
         lat_max=SEARCH_LAT_MAX,
         lng_max=SEARCH_LNG_MAX,
     )
+
+    for sv in state_vectors:
+        print(sv.callsign)
 
 
 if __name__ == "__main__":

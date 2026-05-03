@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import requests
 
 from .api_client import ApiClient
+from models import StateVector
 from config import (
     OPENSKY_BASE_URL,
     OPENSKY_TOKEN_URL,
@@ -25,7 +26,7 @@ class OpenSkyClient(ApiClient):
 
     def _get_token(self) -> str:
         """
-        
+        Return a valid access token, refreshing automatically if needed
         """
         if self.token and self.expires_at and datetime.now() < self.expires_at:
             return self.token
@@ -34,7 +35,7 @@ class OpenSkyClient(ApiClient):
 
     def _refresh_token(self) -> str:
         """
-        
+        Fetch new access token from OpenSky auth server
         """
         response = requests.post(
             url=OPENSKY_TOKEN_URL,
@@ -52,7 +53,11 @@ class OpenSkyClient(ApiClient):
         self.expires_at = datetime.now() + timedelta(seconds=expires_in - OPENSKY_TOKEN_REFRESH_MARGIN)
         return self.token
 
-    def search_box(self, lat_min, lng_min, lat_max, lng_max):
+    def search_box(self, lat_min, lng_min, lat_max, lng_max) -> list[StateVector]:
+        """
+        Search specified box for flights and return state vectors
+        for all found flights that are in the air within that box
+        """
         response = self.make_request(
             path="states/all",
             query_params={
@@ -63,4 +68,9 @@ class OpenSkyClient(ApiClient):
                 "extended": 1,
             }
         )
-        print(json.dumps(response, indent=2, default=str))
+        states = response["states"]
+        if states:
+            state_vectors = [StateVector(*state) for state in states]
+            return [sv for sv in state_vectors if not sv.on_ground]
+        else:
+            return []
