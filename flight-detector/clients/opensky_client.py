@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, timedelta
 
 import requests
@@ -53,7 +52,7 @@ class OpenSkyClient(ApiClient):
         self.expires_at = datetime.now() + timedelta(seconds=expires_in - OPENSKY_TOKEN_REFRESH_MARGIN)
         return self.token
 
-    def search_box(self, lat_min, lng_min, lat_max, lng_max) -> list[StateVector]:
+    def search_box(self, lat_min: float, lng_min: float, lat_max: float, lng_max: float) -> list[StateVector]:
         """
         Search specified box for flights and return state vectors
         for all found flights that are in the air within that box

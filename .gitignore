@@ -11,3 +11,4 @@ devops/
 *.pdf
 __pycache__/
 .env
+logs/
