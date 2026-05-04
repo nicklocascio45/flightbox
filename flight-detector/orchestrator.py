@@ -22,30 +22,35 @@ from config import (
 
 
 def detect(results: dict, opensky_client: OpenSkyClient) -> dict:
+    # state_vectors = opensky_client.search_box(
+    #     lat_min=SEARCH_LAT_MIN,
+    #     lng_min=SEARCH_LNG_MIN,
+    #     lat_max=SEARCH_LAT_MAX,
+    #     lng_max=SEARCH_LNG_MAX,
+    # )
     state_vectors = opensky_client.search_box(
-        lat_min=SEARCH_LAT_MIN,
-        lng_min=SEARCH_LNG_MIN,
-        lat_max=SEARCH_LAT_MAX,
-        lng_max=SEARCH_LNG_MAX,
+        lat_min=AOI_LAT_MIN,
+        lng_min=AOI_LNG_MIN,
+        lat_max=AOI_LAT_MAX,
+        lng_max=AOI_LNG_MAX,
     )
 
     result_key = datetime.now().strftime("%Y-%m-%d %H")
     for sv in state_vectors:
-        intersect_time = step_predict_intersection(
-            sv=sv,
-            lat_min=AOI_LAT_MIN,
-            lat_max=AOI_LAT_MAX,
-            lng_min=AOI_LNG_MIN,
-            lng_max=AOI_LNG_MAX,
-        )
+        # intersect_time = step_predict_intersection(
+        #     sv=sv,
+        #     lat_min=AOI_LAT_MIN,
+        #     lat_max=AOI_LAT_MAX,
+        #     lng_min=AOI_LNG_MIN,
+        #     lng_max=AOI_LNG_MAX,
+        # )
 
-        if intersect_time is not None:
-            logger.info(f"{sv.callsign.strip()} is predicted to cross into your field of view in {intersect_time} seconds")
-            result_record = {sv.callsign.strip(): intersect_time}
-            if result_key not in results:
-                results[result_key] = [result_record]
-            else:
-                results[result_key].append(result_record)
+        # if intersect_time is not None:
+        logger.info(f"{sv.callsign.strip()} should be in your field of view")
+        if result_key not in results:
+            results[result_key] = [sv.callsign.strip()]
+        else:
+            results[result_key].append(sv.callsign.strip())
 
     return results
 

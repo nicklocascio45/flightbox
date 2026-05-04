@@ -30,4 +30,4 @@ DEG_LNG_METERS_MULTIPLIER = 40075 * 1000        # longitude degree meters requir
 DEG_LNG_METERS_DIVISOR = 360                    # longitude degree meters requires current location, this is a constant in the calculation
 
 # Orchestration constants
-DETECTION_INTERVAL_SECONDS = 30
+DETECTION_INTERVAL_SECONDS = 7
