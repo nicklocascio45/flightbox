@@ -1,7 +1,20 @@
 from dataclasses import dataclass
 
+
 @dataclass
-class FlightawareFlight:
+class OrigDest:
+    code: str
+    code_icao: str
+    code_iata: str
+    code_lid: str
+    timezone: str
+    name: str
+    city: str
+    airport_info_url: str
+
+
+@dataclass
+class FlightAwareFlight:
     ident: str
     ident_icao: str
     ident_iata: str
@@ -21,6 +34,8 @@ class FlightawareFlight:
     diverted: bool
     cancelled: bool
     position_only: bool
+    origin: OrigDest
+    destination: OrigDest
     departure_delay: int
     arrival_delay: int
     filed_ete: int
@@ -53,3 +68,10 @@ class FlightawareFlight:
     terminal_origin: str
     terminal_destination: str
     type: str
+
+    def __post_init__(self):
+        if isinstance(self.origin, dict):
+            self.origin = OrigDest(**self.origin)
+
+        if isinstance(self.destination, dict):
+            self.destination = OrigDest(**self.destination)

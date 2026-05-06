@@ -12,3 +12,4 @@ devops/
 __pycache__/
 .env
 logs/
+*.tar

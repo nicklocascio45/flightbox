@@ -27,6 +27,13 @@ def step_predict_intersection(sv: StateVector, lat_min: float, lng_min: float, l
     Based on furthest possible distance from AOI and constant step size
     in seconds, calculate plane positions at each time step. If any of
     the predicted positions intersect with AOI, that is a flight to alert on
+
+    NOTE: I decided to stop using this for the time being. The flight path
+    that I am on is predictable enough and right on a curve, so this dead
+    reckoning prediction does not perform as well as simply checking AOI
+    at a higher rate. For future implementations this could come in handy so
+    I'm keeping it. There are also more sophisticated ways that we can go
+    about prediction as well
     """
     step_count = math.ceil(FURTHEST_DISTANCE_SECONDS / STEP_SIZE_SECONDS)
     for i in range(step_count + 1):

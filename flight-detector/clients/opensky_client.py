@@ -69,6 +69,7 @@ class OpenSkyClient(ApiClient):
         )
         states = response["states"]
         if states:
+            # TODO: add some cleanup on this data so we don't have to .strip() everything
             state_vectors = [StateVector(*state) for state in states]
             return [sv for sv in state_vectors if not sv.on_ground]
         else:

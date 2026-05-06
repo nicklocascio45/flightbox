@@ -1,7 +1,7 @@
 from .state_vector import StateVector
-from .flightaware_flight import FlightawareFlight
+from .flightaware_flight import FlightAwareFlight
 
 __all__ = [
     "StateVector",
-    "FlightawareFlight",
+    "FlightAwareFlight",
 ]
