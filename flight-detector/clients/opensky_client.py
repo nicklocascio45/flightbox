@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 
 import requests
 
-from .api_client import ApiClient
 from models import StateVector
 from config import (
     OPENSKY_BASE_URL,
@@ -11,17 +10,18 @@ from config import (
 )
 
 
-class OpenSkyClient(ApiClient):
+class OpenSkyClient:
     def __init__(self, client_id: str, client_secret: str):
-        super().__init__(base_url=OPENSKY_BASE_URL)
-
         self.client_id = client_id
         self.client_secret = client_secret
+
+        self.token_url = OPENSKY_TOKEN_URL
+        self.base_url = OPENSKY_BASE_URL
         self.token: str = None
         self.expires_at: datetime = None
 
-    def get_headers(self) -> dict:
-        return {"Authorization": f"Bearer {self._get_token()}"}
+        # TODO: want some sort of watcher on this so we don't go over?
+        self.daily_remaining = 4000
 
     def _get_token(self) -> str:
         """
@@ -37,7 +37,7 @@ class OpenSkyClient(ApiClient):
         Fetch new access token from OpenSky auth server
         """
         response = requests.post(
-            url=OPENSKY_TOKEN_URL,
+            url=self.token_url,
             data={
                 "grant_type": "client_credentials",
                 "client_id": self.client_id,
@@ -57,19 +57,25 @@ class OpenSkyClient(ApiClient):
         Search specified box for flights and return state vectors
         for all found flights that are in the air within that box
         """
-        response = self.make_request(
-            path="states/all",
-            query_params={
+        response = requests.get(
+            url=f"{self.base_url}/states/all",
+            params={
                 "lamin": lat_min,
                 "lomin": lng_min,
                 "lamax": lat_max,
                 "lomax": lng_max,
                 "extended": 1,
-            }
+            },
+            headers={"Authorization": f"Bearer {self._get_token()}"}
         )
+        self.daily_remaining = response.headers.get("X-Rate-Limit-Remaining")
+        response.raise_for_status()
+        response = response.json()
+
         states = response["states"]
         if states:
-            # TODO: add some cleanup on this data so we don't have to .strip() everything
+            # NOTE: investigate why only one * here, but two ** for flightaware?
+            # TODO: add more filtering on altitude / type (maybe not possible)
             state_vectors = [StateVector(*state) for state in states]
             return [sv for sv in state_vectors if not sv.on_ground]
         else:

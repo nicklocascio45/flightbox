@@ -1,23 +1,44 @@
-import json
 import os
 import time
 import sys
-from datetime import datetime
 
 from dotenv import load_dotenv
 
 from clients import OpenSkyClient, FlightAwareClient
-from utils.logger import logger
+from comms import Mqtt
+from utils import logger, FlightCache
+from models import NotificationDetails
 from config import (
     AOI_LAT_MIN,
     AOI_LAT_MAX,
     AOI_LNG_MIN,
     AOI_LNG_MAX,
+    ALT_AOI_LAT_MIN, # temp
+    ALT_AOI_LAT_MAX, # temp
+    ALT_AOI_LNG_MIN, # temp
+    ALT_AOI_LNG_MAX, # temp
     DETECTION_INTERVAL_SECONDS,
 )
 
+flight_cache = FlightCache()
 
-def detect(results: dict, opensky_client: OpenSkyClient, flightaware_client: FlightAwareClient) -> dict:
+"""
+We should at least start thinking about this in terms of a stateful
+object. I think ideal state would be to have this thing always-on, but
+with modifiable behavior based on device inputs. For example, we don't 
+want to burn through API calls when I'm not around. So when I get home I
+can press a button on my device and that will start firing API calls
+"""
+
+def _show_details(details: NotificationDetails):
+    logger.info(f"{details.callsign} should be in your field of view")
+    logger.info(f"{details.operator} {details.aircraft_type}: {details.origin} -> {details.destination}")
+
+
+def detect(opensky_client: OpenSkyClient, flightaware_client: FlightAwareClient, mqtt: Mqtt):
+    """
+    Run the detection process
+    """
     state_vectors = opensky_client.search_box(
         lat_min=AOI_LAT_MIN,
         lng_min=AOI_LNG_MIN,
@@ -25,28 +46,29 @@ def detect(results: dict, opensky_client: OpenSkyClient, flightaware_client: Fli
         lng_max=AOI_LNG_MAX,
     )
 
-    result_key = datetime.now().strftime("%Y-%m-%d %H")
     for sv in state_vectors:
-        logger.info(f"{sv.callsign.strip()} should be in your field of view")
+        if sv.callsign in flight_cache.detected:
+            continue
 
-        # flightaware_client.get_flight_details(sv=sv)
-
-        # push detections to a results dictionary that we can inspect in logs for analysis
-        if result_key not in results:
-            results[result_key] = [sv.callsign.strip()]
-        else:
-            results[result_key].append(sv.callsign.strip())
-
-    return results
+        flight = flightaware_client.get_flight_details(sv=sv)
+        if flight is not None:
+            _show_details(flight.notification_details)
+            mqtt.flight_notify(flight.notification_details)
+            flight_cache.detected.append(sv.callsign)
 
 
 def orchestrate_detection():
     load_dotenv(dotenv_path="config/.env")
+
+    # TODO: make this whole initialization piece a little less disgusting?
     OPENSKY_CLIENT_ID = os.getenv("OPENSKY_CLIENT_ID")
     OPENSKY_CLIENT_SECRET = os.getenv("OPENSKY_CLIENT_SECRET")
     FLIGHTAWARE_API_KEY = os.getenv("FLIGHTAWARE_API_KEY")
+    MQTT_USERNAME = os.getenv("MQTT_USERNAME")
+    MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
+    MQTT_HOST = os.getenv("MQTT_HOST")
 
-    if not all([OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET, FLIGHTAWARE_API_KEY]):
+    if not all([OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET, FLIGHTAWARE_API_KEY, MQTT_USERNAME, MQTT_PASSWORD, MQTT_HOST]):
         logger.error("MISSING ENV VAR")
         return
 
@@ -54,31 +76,26 @@ def orchestrate_detection():
         client_id=OPENSKY_CLIENT_ID,
         client_secret=OPENSKY_CLIENT_SECRET,
     )
-    flighaware_client = FlightAwareClient(
+    flightaware_client = FlightAwareClient(
         api_key=FLIGHTAWARE_API_KEY,
     )
+    mqtt = Mqtt(
+        username=MQTT_USERNAME,
+        password=MQTT_PASSWORD,
+        host=MQTT_HOST,
+    )
 
-    results = {}
-    prev_hour = datetime.now().hour
     while True:
-        logger.info("Running detection...")
-
-        # high-level exception catching for the time being
+        # High-level exception catching for the time being
         try:
-            results = detect(
-                results=results,
+            detect(
                 opensky_client=opensky_client,
-                flightaware_client=flighaware_client
+                flightaware_client=flightaware_client,
+                mqtt=mqtt,
             )
         except Exception as e:
             logger.error(f"Exception occurred during detection: {e}")
 
-        curr_hour = datetime.now().hour
-        if curr_hour > prev_hour or (curr_hour == 0 and prev_hour != 0):
-            prev_hour = curr_hour
-            logger.info(f"Results: {json.dumps(results)}")
-
-        logger.info("Detection complete, sleeping...")
         time.sleep(DETECTION_INTERVAL_SECONDS)
 
 
@@ -86,38 +103,7 @@ def _test_functionality():
     """
     Temp function just to try out new things
     """
-    from models import FlightAwareFlight
-
-    with open("clients/temp.json") as f:
-        data = json.loads(f.read())["flights"][0]
-
-    flight = FlightAwareFlight(**data)
-    print(flight.origin.code)
-    print(flight.destination.code)
-
-    import csv
-    with open("data/planes.dat", "r") as csvfile:
-        plane_reader = csv.reader(csvfile, delimiter=",")
-
-    with open("data/airlines.dat", "r") as csvfile:
-        airline_reader = csv.reader(csvfile, delimiter=",")
-
-    """
-    Airline DB:
-        id
-        name
-        alias
-        iata - CAN MATCH (operator_iata)
-        icao - CAN MATCH (operator_icao)
-        callsign
-        country
-        active ("Y" or "N")
-
-    Plane DB:
-        name
-        iata
-        icao - CAN MATCH (aircraft_type)
-    """
+    pass
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class StateVector:
     icao24: str
@@ -20,3 +21,6 @@ class StateVector:
     spi: bool
     position_source: int
     category: int
+
+    def __post_init__(self):
+        self.callsign = self.callsign.strip()

@@ -1,11 +1,9 @@
 # temporary
-esp32-mqtt/
-tft-display-hello/
+esp32/
 api-data/
 devops/
 
 .DS_Store
-.vscode/
 .venv/
 *.bkp
 *.pdf
@@ -13,3 +11,10 @@ __pycache__/
 .env
 logs/
 *.tar
+sdkconfig
+sdkconfig.old
+build/
+managed_components/
+*.crt
+*.key
+*.dat

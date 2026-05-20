@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class OrigDest:
+class Airport:
     code: str
     code_icao: str
     code_iata: str
@@ -11,6 +11,15 @@ class OrigDest:
     name: str
     city: str
     airport_info_url: str
+
+
+@dataclass
+class NotificationDetails:
+    callsign: str
+    operator: str
+    aircraft_type: str
+    origin: str
+    destination: str
 
 
 @dataclass
@@ -34,8 +43,8 @@ class FlightAwareFlight:
     diverted: bool
     cancelled: bool
     position_only: bool
-    origin: OrigDest
-    destination: OrigDest
+    origin: Airport
+    destination: Airport
     departure_delay: int
     arrival_delay: int
     filed_ete: int
@@ -68,10 +77,19 @@ class FlightAwareFlight:
     terminal_origin: str
     terminal_destination: str
     type: str
+    notification_details: NotificationDetails
 
     def __post_init__(self):
         if isinstance(self.origin, dict):
-            self.origin = OrigDest(**self.origin)
+            self.origin = Airport(**self.origin)
 
         if isinstance(self.destination, dict):
-            self.destination = OrigDest(**self.destination)
+            self.destination = Airport(**self.destination)
+
+        self.notification_details = NotificationDetails(
+            self.ident,
+            self.operator,
+            self.aircraft_type,
+            self.origin.name,
+            self.destination.name
+        )
