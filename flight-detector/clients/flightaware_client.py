@@ -101,10 +101,14 @@ class FlightAwareClient:
         # Convert plane and airline to friendly names
         for plane in self.planes:
             if fa_flight.aircraft_type == plane.icao:
+                # TODO: better way to handle? idk if notification details dataclass is best approach here
                 fa_flight.aircraft_type = plane.name
+                fa_flight.notification_details.aircraft_type = plane.name
 
         for airline in self.airlines:
             if fa_flight.operator_icao == airline.icao:
+                # TODO: better way to handle? idk if notification details dataclass is best approach here
                 fa_flight.operator = airline.name
+                fa_flight.notification_details.operator = airline.name
 
         return fa_flight

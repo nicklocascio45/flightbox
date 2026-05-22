@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -77,7 +77,7 @@ class FlightAwareFlight:
     terminal_origin: str
     terminal_destination: str
     type: str
-    notification_details: NotificationDetails
+    notification_details: NotificationDetails = field(init=False)
 
     def __post_init__(self):
         if isinstance(self.origin, dict):

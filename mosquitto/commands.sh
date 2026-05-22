@@ -14,17 +14,18 @@ aws s3 cp s3://nicklocascio-transfer-files-bucket/mosquitto.tar . --profile deve
 docker load -i mosquitto.tar
 hostname -I
 docker run -dt -e MQ_PASSWORD=PASSWORD_PLACEHOLDER -e HOST_IP=IP_PLACEHOLDER -p 1883:1883 -p 8883:8883 mosquitto
+docker ps
 docker cp CONTAINER_ID_PLACEHOLDER:/etc/mosquitto/ca_certificates/ca.crt .
 aws s3 rm s3://nicklocascio-transfer-files-bucket/mosquitto.tar --profile development
 
 # On container to sub to topic
+docker exec -it CONTAINER_ID_PLACEHOLDER /bin/bash
 mosquitto_sub -h localhost -p 1883 \
-    -t "kitchen/+" \
+    -t "/flightbox/flights/visible" \
     -u "iot" -P "PASSWORD_PLACEHOLDER"
 
 # On local machine download cert and publish to pi container
 scp -i ~/.ssh/rpi4 nicklocascio@rpi4:ca.crt .
-mosquitto_pub -h IP_PLACEHOLDER -p 8883 \
-    --cafile ca.crt \
-    -t "kitchen/my-sensor" -m '{"temp":25}' \
+mosquitto_pub -h IP_PLACEHOLDER -p 1883 \
+    -t "/flightbox/flights/visible" -m "we got one" \
     -u "iot" -P "PASSWORD_PLACEHOLDER"

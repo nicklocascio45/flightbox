@@ -50,11 +50,11 @@ def detect(opensky_client: OpenSkyClient, flightaware_client: FlightAwareClient,
         if sv.callsign in flight_cache.detected:
             continue
 
+        flight_cache.detected.append(sv.callsign)
         flight = flightaware_client.get_flight_details(sv=sv)
         if flight is not None:
             _show_details(flight.notification_details)
             mqtt.flight_notify(flight.notification_details)
-            flight_cache.detected.append(sv.callsign)
 
 
 def orchestrate_detection():
