@@ -25,10 +25,16 @@ AOI_LAT_MAX = 47.612
 AOI_LNG_MAX = -122.344
 
 # Search coordinate information - secondary AOI more commonly traveled
-ALT_AOI_LAT_MIN = 47.600607
-ALT_AOI_LNG_MIN = -122.319889
-ALT_AOI_LAT_MAX = 47.618314
-ALT_AOI_LNG_MAX = -122.305813
+ALT_AOI_LAT_MIN = 47.600
+ALT_AOI_LNG_MIN = -122.319
+ALT_AOI_LAT_MAX = 47.620
+ALT_AOI_LNG_MAX = -122.305
+
+# Search coordinate information - secondary AOI more commonly traveled
+ALT_SEARCH_AOI_LAT_MIN = 47.560
+ALT_SEARCH_AOI_LNG_MIN = -122.319
+ALT_SEARCH_AOI_LAT_MAX = 47.660
+ALT_SEARCH_AOI_LNG_MAX = -122.305
 
 # Prediction logic constants
 STEP_SIZE_SECONDS = 20                          # calculated from shortest possible time across AOI

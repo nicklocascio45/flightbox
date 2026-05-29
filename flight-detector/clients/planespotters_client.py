@@ -14,6 +14,9 @@ class PlanespottersClient:
     def get_plane_photo(self, sv: StateVector) -> str | None:
         response = requests.get(
             url=f"{self.base_url}/{sv.icao24}",
+            headers={
+                "User-Agent": "MyFlightTracker/1.0 (nicoloc4545@gmail.com)",
+            }
         )
         response.raise_for_status()
         response = response.json()

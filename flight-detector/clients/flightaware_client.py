@@ -21,7 +21,7 @@ class FlightAwareClient:
         self.callsign_cache = []
 
         self.daily_request_count = 0
-        self.request_tracking_day = datetime.today()
+        self.request_tracking_day = datetime.today().date()
 
     def _load_planes(self) -> list[Plane]:
         """
@@ -45,9 +45,15 @@ class FlightAwareClient:
         """
         Helper responsible for resetting daily request limit and
         checking that we're good on requests for the day
+
+        NOTE: This is limited to a per-run basis. If we kill a run
+        at 29 requests and restart, our request count for the day 
+        also resets. API doesn't readily provide daily request count
+        in the response unfortunately
         """
-        if datetime.today() > self.request_tracking_day:
-            self.request_tracking_day = datetime.today()
+        if datetime.today().date() > self.request_tracking_day:
+            logger.info("Resetting daily FlightAware request count")
+            self.request_tracking_day = datetime.today().date()
             self.daily_request_count = 0
             return False
 

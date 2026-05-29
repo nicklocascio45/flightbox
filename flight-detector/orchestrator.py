@@ -4,7 +4,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from clients import OpenSkyClient, FlightAwareClient
+from clients import OpenSkyClient, FlightAwareClient, PlanespottersClient
 from comms import Mqtt
 from utils import logger, FlightCache
 from models import NotificationDetails
@@ -30,20 +30,26 @@ want to burn through API calls when I'm not around. So when I get home I
 can press a button on my device and that will start firing API calls
 """
 
-def _show_details(details: NotificationDetails):
+def _show_details(details: NotificationDetails, photo_url: str):
     logger.info(f"{details.callsign} should be in your field of view")
     logger.info(f"{details.operator} {details.aircraft_type}: {details.origin} -> {details.destination}")
+    logger.info(f"Image: {photo_url}")
 
 
-def detect(opensky_client: OpenSkyClient, flightaware_client: FlightAwareClient, mqtt: Mqtt):
+def detect(
+        opensky_client: OpenSkyClient, 
+        flightaware_client: FlightAwareClient, 
+        planespotters_client: PlanespottersClient, 
+        mqtt: Mqtt
+    ):
     """
     Run the detection process
     """
     state_vectors = opensky_client.search_box(
-        lat_min=AOI_LAT_MIN,
-        lng_min=AOI_LNG_MIN,
-        lat_max=AOI_LAT_MAX,
-        lng_max=AOI_LNG_MAX,
+        lat_min=ALT_AOI_LAT_MIN,
+        lng_min=ALT_AOI_LNG_MIN,
+        lat_max=ALT_AOI_LAT_MAX,
+        lng_max=ALT_AOI_LNG_MAX,
     )
 
     for sv in state_vectors:
@@ -53,7 +59,8 @@ def detect(opensky_client: OpenSkyClient, flightaware_client: FlightAwareClient,
         flight_cache.detected.append(sv.callsign)
         flight = flightaware_client.get_flight_details(sv=sv)
         if flight is not None:
-            _show_details(flight.notification_details)
+            photo_url = planespotters_client.get_plane_photo(sv=sv)
+            _show_details(flight.notification_details, photo_url)
             mqtt.flight_notify(flight.notification_details)
 
 
@@ -79,6 +86,7 @@ def orchestrate_detection():
     flightaware_client = FlightAwareClient(
         api_key=FLIGHTAWARE_API_KEY,
     )
+    planespotters_client = PlanespottersClient()
     mqtt = Mqtt(
         username=MQTT_USERNAME,
         password=MQTT_PASSWORD,
@@ -91,6 +99,7 @@ def orchestrate_detection():
             detect(
                 opensky_client=opensky_client,
                 flightaware_client=flightaware_client,
+                planespotters_client=planespotters_client,
                 mqtt=mqtt,
             )
         except Exception as e:
