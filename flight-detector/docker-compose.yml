@@ -1,0 +1,6 @@
+services:
+  detector:
+    container_name: detector
+    image: detector:latest
+    volumes:
+      - ./logs:/app/logs
