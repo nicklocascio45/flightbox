@@ -1,0 +1,17 @@
+menu "MQTT Configuration"
+
+    config MQTT_BROKER_HOSTNAME
+        string "MQTT Broker Hostname"
+        default "127.0.0.1"
+        help
+            The hostname or IP address to connect to.
+
+    config MQTT_USERNAME
+        string "MQTT Username"
+        default "username"
+
+    config MQTT_PASSWORD
+        string "MQTT Password"
+        default "password"
+
+endmenu

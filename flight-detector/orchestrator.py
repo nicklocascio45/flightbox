@@ -17,6 +17,10 @@ from config import (
     ALT_AOI_LAT_MAX, # temp
     ALT_AOI_LNG_MIN, # temp
     ALT_AOI_LNG_MAX, # temp
+    DEP_AOI_LAT_MIN, # temp
+    DEP_AOI_LAT_MAX, # temp
+    DEP_AOI_LNG_MIN, # temp
+    DEP_AOI_LNG_MAX, # temp
     DETECTION_INTERVAL_SECONDS,
 )
 
@@ -32,7 +36,7 @@ can press a button on my device and that will start firing API calls
 
 def _show_details(details: NotificationDetails, photo_url: str):
     logger.info(f"{details.callsign} should be in your field of view")
-    logger.info(f"{details.operator} {details.aircraft_type}: {details.origin} -> {details.destination}")
+    logger.info(f"{details.operator} {details.aircraft_type} ({'widebody' if details.widebody else 'standard'}): {details.origin} -> {details.destination}")
     logger.info(f"Image: {photo_url}")
 
 
@@ -46,10 +50,10 @@ def detect(
     Run the detection process
     """
     state_vectors = opensky_client.search_box(
-        lat_min=ALT_AOI_LAT_MIN,
-        lng_min=ALT_AOI_LNG_MIN,
-        lat_max=ALT_AOI_LAT_MAX,
-        lng_max=ALT_AOI_LNG_MAX,
+        lat_min=DEP_AOI_LAT_MIN,
+        lng_min=DEP_AOI_LNG_MIN,
+        lat_max=DEP_AOI_LAT_MAX,
+        lng_max=DEP_AOI_LNG_MAX,
     )
 
     for sv in state_vectors:

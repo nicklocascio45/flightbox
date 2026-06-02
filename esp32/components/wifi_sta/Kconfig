@@ -1,0 +1,22 @@
+menu "WiFi STA Configuration"
+
+    config WIFI_STA_CONNECT
+        bool "Connect using WiFi"
+        default n
+        help
+            Enables the WiFi driver to connect to local network.
+    
+    if WIFI_STA_CONNECT
+        config WIFI_STA_SSID
+            string "WiFi SSID"
+            default "myssid"
+            help
+                Network name (SSID) to connect to.
+
+        config WIFI_STA_PASSWORD
+            string "WiFi Password"
+            default "mypassword"
+
+    endif
+
+endmenu
