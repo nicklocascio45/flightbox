@@ -20,6 +20,7 @@ class NotificationDetails:
     aircraft_type: str
     origin: str
     destination: str
+    widebody: bool = field(init=False)
 
 
 @dataclass

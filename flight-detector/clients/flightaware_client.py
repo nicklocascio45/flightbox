@@ -111,6 +111,11 @@ class FlightAwareClient:
                 fa_flight.aircraft_type = plane.name
                 fa_flight.notification_details.aircraft_type = plane.name
 
+                if plane.widebody == "Y":
+                    fa_flight.notification_details.widebody = True
+                else:
+                    fa_flight.notification_details.widebody = False
+
         for airline in self.airlines:
             if fa_flight.operator_icao == airline.icao:
                 # TODO: better way to handle? idk if notification details dataclass is best approach here

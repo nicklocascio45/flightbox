@@ -1,11 +1,7 @@
-/**
- * 
- */
-
 #include "esp_log.h"
 #include "esp_wifi.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
+
+#include "wifi_sta.h"
 
 // Logger tag
 static const char *TAG = "wifi_sta";
@@ -13,15 +9,25 @@ static const char *TAG = "wifi_sta";
 // Static global variables
 static EventGroupHandle_t s_wifi_event_group = NULL;
 
+/****************************************************
+ * Private function prototypes
+ ****************************************************/
+
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
+/****************************************************
+ * Private function definitions
+ ****************************************************/
+
+// Event handler for WiFi events
 static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     esp_err_t esp_ret;
 
     switch (event_id) {
         case WIFI_EVENT_STA_START:
+            // TODO: move this logic to function
             ESP_LOGI(TAG, "WiFi started, connecting...");
             esp_ret = esp_wifi_connect();
             if (esp_ret != ESP_OK) {
@@ -36,6 +42,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 
         case WIFI_EVENT_STA_CONNECTED:
             ESP_LOGI(TAG, "WiFi connected!!");
+            xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
             break;
 
         case WIFI_EVENT_STA_DISCONNECTED:
@@ -47,10 +54,13 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
     }
 }
 
+// Event handler for IP events
 static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     switch (event_id) {
         case IP_EVENT_STA_GOT_IP:
+            ESP_LOGI(TAG, "Got IP!!");
+            xEventGroupSetBits(s_wifi_event_group, IP_OBTAINED_BIT);
             break;
         case IP_EVENT_STA_LOST_IP:
             break;
@@ -60,6 +70,11 @@ static void ip_event_handler(void *arg, esp_event_base_t event_base, int32_t eve
     }
 }
 
+/****************************************************
+ * Public function definitions
+ ****************************************************/
+
+// Initialize WiFi in station (STA) mode
 esp_err_t wifi_sta_init(EventGroupHandle_t event_group)
 {
     esp_err_t esp_ret;

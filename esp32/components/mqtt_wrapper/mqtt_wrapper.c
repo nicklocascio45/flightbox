@@ -2,31 +2,41 @@
  * 
  */
 
+#include <string.h>
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
 
 #include "mqtt_client.h"
+#include "cJSON.h"
 
 #include "mqtt_wrapper.h"
+#include "lighting.h"
 
 // Logger tag
 static const char *TAG = "mqtt_wrapper";
 
 // Static global variables
 static EventGroupHandle_t s_mqtt_event_group = NULL;
+static EventGroupHandle_t s_lighting_event_group = NULL;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
+
+/****************************************************
+ * Private function prototypes
+ ****************************************************/
 
 static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
-static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+/****************************************************
+ * Private function definitions
+ ****************************************************/
+
+static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+{
     esp_mqtt_event_t *event = (esp_mqtt_event_t *)event_data;
 
     switch (event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "Connected to MQTT broker");
             xEventGroupSetBits(s_mqtt_event_group, MQTT_CONNECTED_BIT);
-
             esp_mqtt_client_subscribe(s_mqtt_client, "/flightbox/flights/visible", 2);
             break;
 
@@ -35,6 +45,7 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "Subscribed to topic");
+            xEventGroupSetBits(s_mqtt_event_group, MQTT_SUBSCRIBED_BIT);
             break;
 
         case MQTT_EVENT_UNSUBSCRIBED:
@@ -45,7 +56,19 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "Received data!");
-            ESP_LOGI(TAG, "  %.*s", event->data_len, event->data);
+
+            cJSON *flight_json = cJSON_ParseWithLength(event->data, event->data_len);
+            cJSON *widebody = cJSON_GetObjectItem(flight_json, "widebody");
+
+            if (widebody->type == cJSON_True) {
+                ESP_LOGI(TAG, "Received message for widebody plane");
+                xEventGroupSetBits(s_lighting_event_group, WIDEBODY_BIT);
+            } else {
+                ESP_LOGI(TAG, "Received message for standard plane");
+                xEventGroupSetBits(s_lighting_event_group, STANDARD_BIT);
+            }
+
+            cJSON_Delete(flight_json);
             break;
 
         case MQTT_EVENT_ERROR:
@@ -57,16 +80,22 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
     }
 }
 
-esp_err_t mqtt_start(EventGroupHandle_t event_group) {
+/****************************************************
+ * Public function definitions
+ ****************************************************/
+
+esp_err_t mqtt_start(EventGroupHandle_t mqtt_event_group, EventGroupHandle_t lighting_event_group)
+{
     esp_err_t esp_ret;
 
     ESP_LOGI(TAG, "Starting MQTT client...");
 
-    // Save event group handle
-    if (event_group != NULL) {
-        s_mqtt_event_group = event_group;
+    // Save event group handles
+    if (mqtt_event_group != NULL && lighting_event_group != NULL) {
+        s_mqtt_event_group = mqtt_event_group;
+        s_lighting_event_group = lighting_event_group;
     } else {
-        ESP_LOGE(TAG, "Event group handle is NULL");
+        ESP_LOGE(TAG, "One or more event group handles is NULL");
         return ESP_FAIL;
     }
 

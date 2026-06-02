@@ -30,6 +30,12 @@ ALT_AOI_LNG_MIN = -122.319
 ALT_AOI_LAT_MAX = 47.620
 ALT_AOI_LNG_MAX = -122.305
 
+# Depart AOI
+DEP_AOI_LAT_MIN = 47.590305
+DEP_AOI_LNG_MIN = -122.298431
+DEP_AOI_LAT_MAX = 47.607205
+DEP_AOI_LNG_MAX = -122.279377
+
 # Search coordinate information - secondary AOI more commonly traveled
 ALT_SEARCH_AOI_LAT_MIN = 47.560
 ALT_SEARCH_AOI_LNG_MIN = -122.319
@@ -44,7 +50,7 @@ DEG_LNG_METERS_MULTIPLIER = 40075 * 1000        # longitude degree meters requir
 DEG_LNG_METERS_DIVISOR = 360                    # longitude degree meters requires current location, this is a constant in the calculation
 
 # Orchestration constants
-DETECTION_INTERVAL_SECONDS = 7
+DETECTION_INTERVAL_SECONDS = 2
 
 # MQTT Details
 NOTIFY_TOPIC = "/flightbox/flights/visible"
