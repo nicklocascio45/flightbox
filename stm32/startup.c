@@ -11,13 +11,18 @@ extern uint32_t _la_data;
 extern uint32_t _sbss;
 extern uint32_t _ebss;
 
+// Prototype of main
+int main(void);
+
 void Reset_Handler(void);
 
+// Vector table
 uint32_t vectors[] __attribute__((section(".vectors"))) = {
 	STACK_START,
 	(uint32_t)Reset_Handler,
 };
 
+// Reset handler definition, calls main at the end of setup work
 void Reset_Handler(void)
 {
 	// Determine size of data section
@@ -39,4 +44,8 @@ void Reset_Handler(void)
 	for (uint32_t i = 0; i < bss_len; i++) {
 		*bss_addr++ = 0;
 	}
+
+	main();
+
+	for (;;) {}
 }

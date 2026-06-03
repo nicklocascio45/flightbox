@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug (OpenOCD)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "configFiles": [
+                "board/st_nucleo_f4.cfg"
+            ],
+            "preLaunchTask": "build",
+            "executable": "${workspaceFolder}/stm32/final.elf",
+            "svdFile": "${workspaceFolder}/stm32/STM32F446.svd" ,      
+            "cwd": "${workspaceFolder}/stm32",
+            "runToEntryPoint": "main",
+        }
+    ]
+}
