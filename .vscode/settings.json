@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/Users/nicklocascio/flightbox/esp32/apps/flightbox"
+    "cmake.sourceDirectory": "/Users/nicklocascio/flightbox/esp32/apps/flightbox",
+    "cortex-debug.variableUseNaturalFormat": true
 }

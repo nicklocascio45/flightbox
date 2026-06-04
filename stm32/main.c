@@ -2,10 +2,18 @@
 #include <stdbool.h>
 
 /**
- * Address macros
+ * Bus address macros
  */
 
 #define AHB1_BASEADDR		0x40020000UL
+#define APB1_BASEADDR		0x40000000UL
+#define APB2_BASEADDR		0x40010000UL
+
+/*
+ * Peripheral address macros
+ */
+
+#define RCC_BASEADDR		(AHB1_BASEADDR + 0x3800)
 
 #define GPIOA_BASEADDR		(AHB1_BASEADDR + 0x0000)
 #define GPIOB_BASEADDR		(AHB1_BASEADDR + 0x0400)
@@ -16,24 +24,16 @@
 #define GPIOG_BASEADDR		(AHB1_BASEADDR + 0x1800)
 #define GPIOH_BASEADDR		(AHB1_BASEADDR + 0x1C00)
 
-#define RCC_BASEADDR		(AHB1_BASEADDR + 0x3800)
+#define USART2_BASEADDR		(APB1_BASEADDR + 0x4400)
+#define USART3_BASEADDR		(APB1_BASEADDR + 0x4800)
+#define UART4_BASEADDR		(APB1_BASEADDR + 0x4C00)
+#define UART5_BASEADDR		(APB1_BASEADDR + 0x5000)
+#define USART1_BASEADDR		(APB2_BASEADDR + 0x1000)
+#define USART6_BASEADDR		(APB2_BASEADDR + 0x1400)
 
 /**
  * Peripheral register structs
  */
-
-typedef struct 
-{
-	volatile uint32_t MODER;					/*  */
-	volatile uint32_t OTYPER;					/*  */
-	volatile uint32_t OSPEEDR;					/*  */
-	volatile uint32_t PUPDR;					/*  */
-	volatile uint32_t IDR;						/*  */
-	volatile uint32_t ODR;						/*  */
-	volatile uint32_t BSRR;						/*  */
-	volatile uint32_t LCKR;						/*  */
-	volatile uint32_t AFR[2];					/*  */
-} GPIO_RegDef_t;
 
 typedef struct
 {
@@ -73,25 +73,108 @@ typedef struct
 	volatile uint32_t DCKCFGR2;					/*  */
 } RCC_RegDef_t;
 
+typedef struct 
+{
+	volatile uint32_t MODER;					/*  */
+	volatile uint32_t OTYPER;					/*  */
+	volatile uint32_t OSPEEDR;					/*  */
+	volatile uint32_t PUPDR;					/*  */
+	volatile uint32_t IDR;						/*  */
+	volatile uint32_t ODR;						/*  */
+	volatile uint32_t BSRR;						/*  */
+	volatile uint32_t LCKR;						/*  */
+	volatile uint32_t AFR[2];					/*  */
+} GPIO_RegDef_t;
+
+typedef struct
+{
+	volatile uint32_t SR;
+	volatile uint32_t DR;
+	volatile uint32_t BRR;
+	volatile uint32_t CR1;
+	volatile uint32_t CR2;
+	volatile uint32_t CR3;
+	volatile uint32_t GTPR;
+} USART_RegDef_t;
+
 /**
  * Peripheral macros
  */
 
-#define GPIOA		((GPIO_RegDef_t *)GPIOA_BASEADDR)
-
 #define RCC			((RCC_RegDef_t *)RCC_BASEADDR)
+
+#define GPIOA		((GPIO_RegDef_t *)GPIOA_BASEADDR)
+#define GPIOB		((GPIO_RegDef_t *)GPIOB_BASEADDR)
+
+#define USART2		((USART_RegDef_t *)USART2_BASEADDR)
+#define USART3		((USART_RegDef_t *)USART3_BASEADDR)
+#define UART4		((USART_RegDef_t *)UART4_BASEADDR)
+#define UART5		((USART_RegDef_t *)UART5_BASEADDR)
+#define USART1		((USART_RegDef_t *)USART1_BASEADDR)
+#define USART6		((USART_RegDef_t *)USART6_BASEADDR)
+
+void uart_write_byte(USART_RegDef_t *uart, uint8_t byte)
+{
+	// Wait for TXE to be ready
+	while (!(uart->SR & (1 << 7)));
+	// Set data register to byte to send
+	uart->DR = byte;
+	// Wait for byte to be sent (check for TC to SET)
+	while (!(uart->SR & (1 << 6)));
+}
+
+uint8_t uart_read_byte(USART_RegDef_t *uart)
+{
+	uint8_t temp;
+
+	while (!(uart->SR & (1 << 5)));
+	temp = uart->DR;
+	return temp;
+}
+
+void delay(uint32_t time)
+{
+	while (time--);
+}
 
 int main(void)
 {
+	// Enable GPIOA peripheral clock
 	RCC->AHB1ENR |= (1 << 0);
 
+	// Enable USART2 peripheral clock
+	RCC->APB1ENR |= (1 << 17);
+	// Set alternate function for PA2 (TX) and PA3 (RX)
+	GPIOA->MODER |= (2 << 4);
+	GPIOA->MODER |= (2 << 6);
+	GPIOA->AFR[0] |= (7 << 8);
+	GPIOA->AFR[0] |= (7 << 12);
+
+	// Clear all bits
+	USART2->CR1 = 0x0;
+	// Enable USART
+	USART2->CR1 |= (1 << 13);
+	// Enable transmitter
+	USART2->CR1 |= (1 << 3);
+	// Enable receiver
+	USART2->CR1 |= (1 << 2);
+	// Set baud rate to 115200 @ 16MHz
+	USART2->BRR = (14 << 0) | (138 << 4);
+
+	// Send a byte
+	for (;;) {
+		uart_write_byte(USART2, (uint8_t)'n');
+		delay(1000000);
+	}
+
+	// Set PA5 mode
 	GPIOA->MODER |= (1 << 10);
 
 	for (;;) {
 		GPIOA->BSRR = (1 << 5);
-		for (uint32_t i = 0; i < 1000000; i++) {}
+		delay(1000000);
 		GPIOA->BSRR = (1 << (5 + 16));
-		for (uint32_t i = 0; i < 1000000; i++) {}
+		delay(1000000);
 	}
 
 	return 0;
