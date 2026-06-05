@@ -113,22 +113,25 @@ typedef struct
 #define USART1		((USART_RegDef_t *)USART1_BASEADDR)
 #define USART6		((USART_RegDef_t *)USART6_BASEADDR)
 
-void uart_write_byte(USART_RegDef_t *uart, uint8_t byte)
+void uart_write_byte(uint8_t byte)
 {
-	// Wait for TXE to be ready
-	while (!(uart->SR & (1 << 7)));
+	while (!(USART2->SR & (1 << 7)));
 	// Set data register to byte to send
-	uart->DR = byte;
+	USART2->DR = byte;
 	// Wait for byte to be sent (check for TC to SET)
-	while (!(uart->SR & (1 << 6)));
+	while (!(USART2->SR & (1 << 6)));
 }
 
-uint8_t uart_read_byte(USART_RegDef_t *uart)
+void uart_send_string(char *string)
+{
+	while (*string) uart_write_byte(*string++);
+}
+
+uint8_t uart_read_byte(void)
 {
 	uint8_t temp;
-
-	while (!(uart->SR & (1 << 5)));
-	temp = uart->DR;
+	while (!(USART2->SR & (1 << 5)));
+	temp = USART2->DR;
 	return temp;
 }
 
@@ -151,7 +154,7 @@ int main(void)
 	GPIOA->AFR[0] |= (7 << 12);
 
 	// Clear all bits
-	USART2->CR1 = 0x0;
+	USART2->CR1 = 0x00;
 	// Enable USART
 	USART2->CR1 |= (1 << 13);
 	// Enable transmitter
@@ -159,17 +162,16 @@ int main(void)
 	// Enable receiver
 	USART2->CR1 |= (1 << 2);
 	// Set baud rate to 115200 @ 16MHz
-	USART2->BRR = (14 << 0) | (138 << 4);
+	USART2->BRR = (11 << 0) | (8 << 4);
 
-	// Send a byte
-	for (;;) {
-		uart_write_byte(USART2, (uint8_t)'n');
-		delay(1000000);
-	}
+	// Write hello world to serial monitor
+	uart_send_string("hello world\n");
+	delay(5000000);
 
 	// Set PA5 mode
 	GPIOA->MODER |= (1 << 10);
 
+	// Blink onboard LED forever
 	for (;;) {
 		GPIOA->BSRR = (1 << 5);
 		delay(1000000);
