@@ -8,6 +8,7 @@
 #include "wifi_sta.h"
 #include "mqtt_wrapper.h"
 #include "lighting.h"
+#include "display.h"
 
 // Logger tag
 static const char *TAG = "app_main";
@@ -51,6 +52,12 @@ void app_main(void)
 
     // Create default event loop, must be running prior to network driver setup
     esp_event_loop_create_default();
+
+    esp_ret = display_init();
+    if (esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Display init process failed");
+        abort();
+    }
 
     // TODO: WiFi setup abstracted to a network wrapper
     // Initialize WiFi driver and ensure necessary bits get set
@@ -106,13 +113,13 @@ void app_main(void)
     }
 
     // Create the lighting task
-    TaskHandle_t lighting_handle;
-    xTaskCreate(lighting_task,
-                "lighting_task",
-                4096,
-                (void *)lighting_event_group,
-                10,
-                &lighting_handle);
+    // TaskHandle_t lighting_handle;
+    // xTaskCreate(lighting_task,
+    //             "lighting_task",
+    //             4096,
+    //             (void *)lighting_event_group,
+    //             10,
+    //             &lighting_handle);
 
     // Infinite loop, program is now all tasks and event handlers
     while (1) {
