@@ -10,8 +10,10 @@ I've had a Raspberry Pi sitting around for years, and during the initial phases 
 
 I'm working on finalizing the architecture diagram which I'll include in this document in the near future. This project is still in the very early stages, but I do have a rough working prototype described below. This is just the beginning, and I have a ton of ideas for where this can go. If you want to talk more about this or have any constructive feedback for me, please reach out on [my LinkedIn](https://www.linkedin.com/in/nick-locascio1/)!
 
-## Architecture
-===== Coming Soon =====
+## High-Level Architecture
+Below is a high-level design of what I'm envisioning. As the system is developed and evolves this will get updated, and more detailed individual component diagrams will also be added.
+
+![Arch Diagram](docs/high_level_design.drawio.png)
 
 ## Current Functionality (V0)
 - Raspberry Pi
