@@ -31,6 +31,10 @@
 #define USART1_BASEADDR		(APB2_BASEADDR + 0x1000)
 #define USART6_BASEADDR		(APB2_BASEADDR + 0x1400)
 
+#define SYSCFG_BASEADDR		(APB2_BASEADDR + 0x3800)
+
+#define EXTI_BASEADDR		(APB2_BASEADDR + 0x3C00)
+
 /**
  * Peripheral register structs
  */
@@ -97,6 +101,28 @@ typedef struct
 	volatile uint32_t GTPR;
 } USART_RegDef_t;
 
+typedef struct
+{
+	volatile uint32_t MEMRMP;
+	volatile uint32_t PMC;
+	volatile uint32_t EXTICR1;
+	volatile uint32_t EXTICR2;
+	volatile uint32_t EXTICR3;
+	volatile uint32_t EXTICR4;
+	volatile uint32_t CMPCR;
+	volatile uint32_t CFGR;
+} SYSCFG_RegDef_t;
+
+typedef struct
+{
+	volatile uint32_t IMR;						/* Interrupt mask register */
+	volatile uint32_t EMR;						/* Event mask register */
+	volatile uint32_t RTSR;						/* Rising trigger selection register */
+	volatile uint32_t FTSR;						/* Falling trigger selection register */
+	volatile uint32_t SWIER;					/* Software interrupt event register */
+	volatile uint32_t PR;						/* Pending register */
+} EXTI_RegDef_t;
+
 /**
  * Peripheral macros
  */
@@ -112,6 +138,10 @@ typedef struct
 #define UART5		((USART_RegDef_t *)UART5_BASEADDR)
 #define USART1		((USART_RegDef_t *)USART1_BASEADDR)
 #define USART6		((USART_RegDef_t *)USART6_BASEADDR)
+
+#define SYSCFG		((SYSCFG_RegDef_t *)SYSCFG_BASEADDR)
+
+#define EXTI		((EXTI_RegDef_t *)EXTI_BASEADDR)
 
 void uart_write_byte(uint8_t byte)
 {
@@ -166,18 +196,32 @@ int main(void)
 
 	// Write hello world to serial monitor
 	uart_send_string("hello world\n");
-	delay(5000000);
 
-	// Set PA5 mode
-	GPIOA->MODER |= (1 << 10);
+	// Enable the SYSCFG peripheral
+	RCC->APB2ENR |= (1 << 14);
 
-	// Blink onboard LED forever
-	for (;;) {
-		GPIOA->BSRR = (1 << 5);
-		delay(1000000);
-		GPIOA->BSRR = (1 << (5 + 16));
-		delay(1000000);
-	}
+	// Select pin PB1 as source for EXTI line 1
+	SYSCFG->EXTICR1 |= (1 << 4);
+
+	// Enable interrupt for EXTI line 1
+	EXTI->IMR |= (1 << 1);
+
+	// Enable the rising edge trigger (motion detected)
+	EXTI->RTSR |= (1 << 1);
+
+	// Disable the falling edge trigger (motion has come to a stop)
+	EXTI->FTSR &= ~(1 << 1);
+
+	// // Set PA5 mode
+	// GPIOA->MODER |= (1 << 10);
+
+	// // Blink onboard LED forever
+	// for (;;) {
+	// 	GPIOA->BSRR = (1 << 5);
+	// 	delay(1000000);
+	// 	GPIOA->BSRR = (1 << (5 + 16));
+	// 	delay(1000000);
+	// }
 
 	return 0;
 }
