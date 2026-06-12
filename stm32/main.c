@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "peripherals.h"
+
 /**
  * Bus address macros
  */
@@ -32,8 +34,6 @@
 #define USART6_BASEADDR		(APB2_BASEADDR + 0x1400)
 
 #define SYSCFG_BASEADDR		(APB2_BASEADDR + 0x3800)
-
-#define EXTI_BASEADDR		(APB2_BASEADDR + 0x3C00)
 
 /**
  * Peripheral register structs
@@ -113,16 +113,6 @@ typedef struct
 	volatile uint32_t CFGR;
 } SYSCFG_RegDef_t;
 
-typedef struct
-{
-	volatile uint32_t IMR;						/* Interrupt mask register */
-	volatile uint32_t EMR;						/* Event mask register */
-	volatile uint32_t RTSR;						/* Rising trigger selection register */
-	volatile uint32_t FTSR;						/* Falling trigger selection register */
-	volatile uint32_t SWIER;					/* Software interrupt event register */
-	volatile uint32_t PR;						/* Pending register */
-} EXTI_RegDef_t;
-
 /**
  * Peripheral macros
  */
@@ -141,7 +131,8 @@ typedef struct
 
 #define SYSCFG		((SYSCFG_RegDef_t *)SYSCFG_BASEADDR)
 
-#define EXTI		((EXTI_RegDef_t *)EXTI_BASEADDR)
+#define NVIC_IPR1     (*((volatile uint32_t *)0xE000E404))
+#define NVIC_ISER0    (*((volatile uint32_t *)0xE000E100))
 
 void uart_write_byte(uint8_t byte)
 {
@@ -170,6 +161,8 @@ void delay(uint32_t time)
 	while (time--);
 }
 
+volatile uint8_t motion_detected;
+
 int main(void)
 {
 	// Enable GPIOA peripheral clock
@@ -197,6 +190,10 @@ int main(void)
 	// Write hello world to serial monitor
 	uart_send_string("hello world\n");
 
+	// Enable GPIOB peripheral clock and set mode
+	RCC->AHB1ENR |= (1 << 1);
+	GPIOB->MODER |= (0 << 2);
+
 	// Enable the SYSCFG peripheral
 	RCC->APB2ENR |= (1 << 14);
 
@@ -211,6 +208,19 @@ int main(void)
 
 	// Disable the falling edge trigger (motion has come to a stop)
 	EXTI->FTSR &= ~(1 << 1);
+
+	// Set priority of EXTI1 interrupt (7) in NVIC to 3
+	NVIC_IPR1 |= (3 << 28);
+
+	// Enable EXTI1 interrupt (7) in NVIC
+	NVIC_ISER0 |= (1 << 7);
+
+	while (1) {
+		if (motion_detected) {
+			uart_send_string("motion detected!\n");
+			motion_detected = 0;
+		}
+	}
 
 	// // Set PA5 mode
 	// GPIOA->MODER |= (1 << 10);

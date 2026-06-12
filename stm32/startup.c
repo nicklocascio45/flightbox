@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include "peripherals.h"
+
 #define SRAM_START      0x20000000U
 #define SRAM_SIZE       (128U * 1024U) // 128KB
 #define SRAM_END        ((SRAM_START) + (SRAM_SIZE))
@@ -15,6 +17,7 @@ extern uint32_t _ebss;
 int main(void);
 
 void Reset_Handler(void);
+void EXTI1_IRQHandler(void);
 
 void NMI_Handler(void) __attribute__((weak, alias("Default_Handler")));
 void HardFault_Handler(void) __attribute__((weak, alias("Default_Handler")));
@@ -31,7 +34,6 @@ void TAMP_STAMP_IRQHandler(void) __attribute__((weak, alias("Default_Handler")))
 void RTC_WKUP_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void RCC_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void EXTI0_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
-void EXTI1_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void EXTI2_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void EXTI3_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
 void EXTI4_IRQHandler(void) __attribute__((weak, alias("Default_Handler")));
@@ -262,6 +264,16 @@ void Reset_Handler(void)
 	main();
 
 	for (;;) {}
+}
+
+void EXTI1_IRQHandler(void)
+{
+	if (EXTI->PR & (1 << 1)) {
+		// Clear the EXTI status flag
+		EXTI->PR |= (1 << 1);
+		// Toggle global variable.
+		motion_detected = 1;
+  	}
 }
 
 void Default_Handler(void)
