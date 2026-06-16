@@ -17,7 +17,18 @@ static const char *TAG = "mqtt_wrapper";
 // Static global variables
 static EventGroupHandle_t s_mqtt_event_group = NULL;
 static EventGroupHandle_t s_lighting_event_group = NULL;
+static QueueHandle_t s_flight_queue = NULL;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
+
+typedef struct
+{
+    char callsign[32];
+    char operator[32];
+    char aircraft_type[32];
+    char origin[64];
+    char destination[64];
+    bool widebody;
+} flight_t;
 
 /****************************************************
  * Private function prototypes
@@ -68,7 +79,36 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
                 xEventGroupSetBits(s_lighting_event_group, STANDARD_BIT);
             }
 
+            /**
+             * Have a classic C memory problem here. My flight struct is a bunch
+             * of char pointers, and so my struct size is the size of x pointers
+             * which are each 4 bytes (32 bits). But I'm sending pointers. So when
+             * that gets received the actual memory at that pointer address is gone
+             * because we cJSON delete. So we need either char[] maybe w/ strcpy
+             * or some ack that allows us to free the memory
+             */
+
+            char *callsign = cJSON_GetObjectItem(flight_json, "callsign")->valuestring;
+            char *operator = cJSON_GetObjectItem(flight_json, "operator")->valuestring;
+            char *aircraft_type = cJSON_GetObjectItem(flight_json, "aircraft_type")->valuestring;
+            char *origin = cJSON_GetObjectItem(flight_json, "origin")->valuestring;
+            char *destination = cJSON_GetObjectItem(flight_json, "destination")->valuestring;
+            bool widebody_val = true ? widebody->type == cJSON_True : false;
+
+            flight_t flight;
+            strcpy(flight.callsign, callsign);
+            strcpy(flight.operator, operator);
+            strcpy(flight.aircraft_type, aircraft_type);
+            strcpy(flight.origin, origin);
+            strcpy(flight.destination, destination);
+            flight.widebody = widebody_val;
+
+            xQueueSend(s_flight_queue, &flight, portMAX_DELAY);
+            ESP_LOGI(TAG, "Callsign pre delete: %s", flight.callsign);
+
             cJSON_Delete(flight_json);
+
+            ESP_LOGI(TAG, "Callsign post delete: %s", flight.callsign);
             break;
 
         case MQTT_EVENT_ERROR:
@@ -84,18 +124,19 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
  * Public function definitions
  ****************************************************/
 
-esp_err_t mqtt_start(EventGroupHandle_t mqtt_event_group, EventGroupHandle_t lighting_event_group)
+esp_err_t mqtt_start(EventGroupHandle_t mqtt_event_group, EventGroupHandle_t lighting_event_group, QueueHandle_t flight_queue)
 {
     esp_err_t esp_ret;
 
     ESP_LOGI(TAG, "Starting MQTT client...");
 
-    // Save event group handles
-    if (mqtt_event_group != NULL && lighting_event_group != NULL) {
+    // Save event group handles and queue
+    if (mqtt_event_group != NULL && lighting_event_group != NULL && flight_queue != NULL) {
         s_mqtt_event_group = mqtt_event_group;
         s_lighting_event_group = lighting_event_group;
+        s_flight_queue = flight_queue;
     } else {
-        ESP_LOGE(TAG, "One or more event group handles is NULL");
+        ESP_LOGE(TAG, "One of the required params is NULL");
         return ESP_FAIL;
     }
 
