@@ -20,6 +20,6 @@
  * @return	ESP_OK: success
  * 			
  */
-esp_err_t mqtt_start(EventGroupHandle_t mqtt_event_group, EventGroupHandle_t lighting_event_group);
+esp_err_t mqtt_start(EventGroupHandle_t mqtt_event_group, EventGroupHandle_t lighting_event_group, QueueHandle_t flight_queue);
 
 #endif // MQTT_WRAPPER_H

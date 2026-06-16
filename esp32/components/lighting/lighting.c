@@ -5,10 +5,10 @@
 
 #include "lighting.h"
 
+#define LIGHT_TIME_SEC		5
+
 // Logger tag
 static const char *TAG = "lighting";
-
-#define LIGHT_TIME_SEC		5
 
 /****************************************************
  * Private function prototypes

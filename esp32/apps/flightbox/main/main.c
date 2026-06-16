@@ -13,6 +13,19 @@
 // Logger tag
 static const char *TAG = "app_main";
 
+// Queue
+QueueHandle_t flight_queue;
+
+typedef struct
+{
+    char callsign[32];
+    char operator[32];
+    char aircraft_type[32];
+    char origin[64];
+    char destination[64];
+    bool widebody;
+} flight_t;
+
 void app_main(void)
 {
     // Networking event resources
@@ -28,6 +41,13 @@ void app_main(void)
     // Lighting event resources
     EventGroupHandle_t lighting_event_group;
     lighting_event_group = xEventGroupCreate();
+
+    // Set up shared queue
+    flight_queue = xQueueCreate(5, sizeof(flight_t));
+    if (flight_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create flight queue");
+        abort();
+    }
 
     esp_err_t esp_ret;
 
@@ -87,7 +107,7 @@ void app_main(void)
     }
 
     // Start MQTT client and ensure necessary bits get set
-    esp_ret = mqtt_start(mqtt_event_group, lighting_event_group);
+    esp_ret = mqtt_start(mqtt_event_group, lighting_event_group, flight_queue);
     if (esp_ret != ESP_OK) {
         ESP_LOGE(TAG, "MQTT start process failed");
         abort();
@@ -120,6 +140,14 @@ void app_main(void)
     //             (void *)lighting_event_group,
     //             10,
     //             &lighting_handle);
+
+    TaskHandle_t display_handle;
+    xTaskCreate(display_task,
+                "display_task",
+                4096,
+                (void *)flight_queue,
+                9,
+                &display_handle);
 
     // Infinite loop, program is now all tasks and event handlers
     while (1) {
