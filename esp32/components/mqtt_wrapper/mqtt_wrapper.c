@@ -104,11 +104,7 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
             flight.widebody = widebody_val;
 
             xQueueSend(s_flight_queue, &flight, portMAX_DELAY);
-            ESP_LOGI(TAG, "Callsign pre delete: %s", flight.callsign);
-
             cJSON_Delete(flight_json);
-
-            ESP_LOGI(TAG, "Callsign post delete: %s", flight.callsign);
             break;
 
         case MQTT_EVENT_ERROR:

@@ -73,12 +73,6 @@ void app_main(void)
     // Create default event loop, must be running prior to network driver setup
     esp_event_loop_create_default();
 
-    esp_ret = display_init();
-    if (esp_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Display init process failed");
-        abort();
-    }
-
     // TODO: WiFi setup abstracted to a network wrapper
     // Initialize WiFi driver and ensure necessary bits get set
     esp_ret = wifi_sta_init(network_event_group);
@@ -141,12 +135,18 @@ void app_main(void)
     //             10,
     //             &lighting_handle);
 
+    esp_ret = display_init();
+    if (esp_ret != ESP_OK) {
+        ESP_LOGE(TAG, "Display init process failed");
+        abort();
+    }
+
     TaskHandle_t display_handle;
     xTaskCreate(display_task,
                 "display_task",
                 4096,
                 (void *)flight_queue,
-                9,
+                5,
                 &display_handle);
 
     // Infinite loop, program is now all tasks and event handlers

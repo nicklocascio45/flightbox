@@ -49,9 +49,11 @@ typedef struct
     bool widebody;
 } flight_t;
 
-lv_subject_t flight_subject;
-char callsign_buffer[32];
-lv_obj_t *label;
+lv_subject_t callsign_subject;
+lv_subject_t operator_subject;
+lv_subject_t aircraft_subject;
+lv_subject_t origin_subject;
+lv_subject_t destination_subject;
 
 /****************************************************
  * Private function prototypes
@@ -62,7 +64,6 @@ static void lvgl_port_update_callback(lv_display_t *disp);
 static void lvgl_flush_callback(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);
 static void lvgl_tick(void *arg);
 static void lvgl_timer_task(void *arg);
-static void flight_observer_callback(lv_observer_t *observer, lv_subject_t *subject);
 
 /****************************************************
  * Private function definitions
@@ -161,19 +162,15 @@ static void lvgl_timer_task(void *arg)
 		_lock_acquire(&lvgl_api_lock);
 		time_till_next_ms = lv_timer_handler();
 		_lock_release(&lvgl_api_lock);
+
+		if (time_till_next_ms == LV_NO_TIMER_READY) {
+			time_till_next_ms = time_threshold_ms;
+		}
+
 		// in case of triggering a task watch dog time out
 		time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
 		vTaskDelay(pdMS_TO_TICKS(time_till_next_ms));
 	}
-}
-
-/**
- * 
- */
-static void flight_observer_callback(lv_observer_t *observer, lv_subject_t *subject)
-{
-	const char *callsign = lv_subject_get_string(subject);
-	ESP_LOGI(TAG, "Observer callback got flight: %s", callsign);
 }
 
 /****************************************************
@@ -304,7 +301,7 @@ esp_err_t display_init(void)
 
 	ESP_LOGI(TAG, "LVGL display has been fully configured");
 
-	// Simple test display
+	// Set up display elements
 	_lock_acquire(&lvgl_api_lock);
 	lv_color_t bg = {
 		.blue = 255,
@@ -318,35 +315,41 @@ esp_err_t display_init(void)
 	};
 	lv_obj_set_style_bg_color(lv_screen_active(), bg, LV_PART_MAIN);
 
-	label = lv_label_create(lv_screen_active());
-	// lv_label_set_text(label, "Hello, world!");
+	char callsign_buffer[32];
+	lv_obj_t *callsign_label = lv_label_create(lv_screen_active());
+	lv_obj_align(callsign_label, LV_ALIGN_CENTER, 0, -60);
+	lv_subject_init_string(&callsign_subject, callsign_buffer, NULL, sizeof(callsign_buffer), "callsign");
+	lv_label_bind_text(callsign_label, &callsign_subject, "%s");
+
+	char operator_buffer[32];
+	lv_obj_t *operator_label = lv_label_create(lv_screen_active());
+	lv_obj_align(operator_label, LV_ALIGN_CENTER, 0, -30);
+	lv_subject_init_string(&operator_subject, operator_buffer, NULL, sizeof(operator_buffer), "operator");
+	lv_label_bind_text(operator_label, &operator_subject, "%s");
+
+	char aircraft_buffer[32];
+	lv_obj_t *aircraft_label = lv_label_create(lv_screen_active());
+	lv_obj_align(aircraft_label, LV_ALIGN_CENTER, 0, 0);
+	lv_subject_init_string(&aircraft_subject, aircraft_buffer, NULL, sizeof(aircraft_buffer), "aircraft");
+	lv_label_bind_text(aircraft_label, &aircraft_subject, "%s");
+
+	char origin_buffer[32];
+	lv_obj_t *origin_label = lv_label_create(lv_screen_active());
+	lv_obj_align(origin_label, LV_ALIGN_CENTER, 0, 30);
+	lv_subject_init_string(&origin_subject, origin_buffer, NULL, sizeof(origin_buffer), "origin");
+	lv_label_bind_text(origin_label, &origin_subject, "%s");
+
+	char destination_buffer[32];
+	lv_obj_t *destination_label = lv_label_create(lv_screen_active());
+	lv_obj_align(destination_label, LV_ALIGN_CENTER, 0, 60);
+	lv_subject_init_string(&destination_subject, destination_buffer, NULL, sizeof(destination_buffer), "destination");
+	lv_label_bind_text(destination_label, &destination_subject, "%s");
+
 	lv_obj_set_style_text_color(lv_screen_active(), text, LV_PART_MAIN);
-	lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-	/**
-	 * So I think the idea for the rest of this is that we have a
-	 * display_run() function that is the target of another
-	 * FreeRTOS task? And that will wait for queue items that come
-	 * in from MQTT and then run a display function (locked) to put the
-	 * items on the display
-	 * 
-	 * Should also start a thread with claude about the timer task that
-	 * we already have and make sure that I understand all of the true
-	 * implications and necessity of that one
-	 */
-
-	// lv_subject_init_pointer(&flight_subject, NULL);
-	// lv_subject_add_observer_obj(&flight_subject, flight_observer_callback, label, NULL);
-	// lv_label_bind_text(label, &flight_subject, NULL);
-
-	lv_subject_init_string(&flight_subject, callsign_buffer, NULL, sizeof(callsign_buffer), "callsign");
-	lv_subject_add_observer(&flight_subject, flight_observer_callback, NULL);
-	lv_label_bind_text(label, &flight_subject, "%s");
-	lv_subject_copy_string(&flight_subject, "testing");
 	_lock_release(&lvgl_api_lock);
 
 	// Create LVGL timer task
-	xTaskCreate(lvgl_timer_task, "LVGL_timer", 4 * 1024, NULL, 2, NULL);
+	xTaskCreate(lvgl_timer_task, "lvgl_timer", 4 * 1024, NULL, 5, NULL);
 	ESP_LOGI(TAG, "LVGL timer task created");
 
 	return ESP_OK;
@@ -356,15 +359,15 @@ void display_task(void *pvParameters)
 {
 	QueueHandle_t flight_queue = (QueueHandle_t)pvParameters;
 
-	ESP_LOGI(TAG, "Display task has started");
-
 	while (1) {
 		flight_t flight;
 		if (xQueueReceive(flight_queue, &flight, portMAX_DELAY)) {
-			ESP_LOGI(TAG, "Got a flight from queue, callsign is: %s, type is: %s", flight.callsign, flight.aircraft_type);
-			// lv_subject_set_pointer(&flight_subject, flight.callsign);
 			_lock_acquire(&lvgl_api_lock);
-			lv_subject_copy_string(&flight_subject, flight.callsign);
+			lv_subject_copy_string(&callsign_subject, flight.callsign);
+			lv_subject_copy_string(&operator_subject, flight.operator);
+			lv_subject_copy_string(&aircraft_subject, flight.aircraft_type);
+			lv_subject_copy_string(&origin_subject, flight.origin);
+			lv_subject_copy_string(&destination_subject, flight.destination);
 			_lock_release(&lvgl_api_lock);
 		}
 	}
