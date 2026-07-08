@@ -16,6 +16,8 @@
 #include "lvgl.h"
 #include "esp_lcd_ili9341.h"
 
+#include "shared.h"
+
 #define LCD_SPI_HOST			SPI2_HOST
 #define SCL_PIN					17
 #define SDA_PIN					16
@@ -33,21 +35,13 @@
 
 #define LVGL_TICK_PERIOD_MS		2
 
+#define Y_OFFSET_MULTIPLIER		30
+
 // Lock to use during LVGL API calls from tasks bc the APIs are not thread safe
 static _lock_t lvgl_api_lock;
 
 // Logger tag
 static const char *TAG = "display";
-
-typedef struct
-{
-    char callsign[32];
-    char operator[32];
-    char aircraft_type[32];
-    char origin[64];
-    char destination[64];
-    bool widebody;
-} flight_t;
 
 lv_subject_t callsign_subject;
 lv_subject_t operator_subject;
@@ -64,6 +58,8 @@ static void lvgl_port_update_callback(lv_display_t *disp);
 static void lvgl_flush_callback(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);
 static void lvgl_tick(void *arg);
 static void lvgl_timer_task(void *arg);
+static void create_label(lv_subject_t *subject, char *name, int32_t y_offset);
+static void populate_display(void);
 
 /****************************************************
  * Private function definitions
@@ -171,6 +167,56 @@ static void lvgl_timer_task(void *arg)
 		time_till_next_ms = MAX(time_till_next_ms, time_threshold_ms);
 		vTaskDelay(pdMS_TO_TICKS(time_till_next_ms));
 	}
+}
+
+/**
+ * @brief Abstraction for label setup
+ * 
+ * Creates label, aligns it based on a provided offset,
+ * initializes the provided subject with a buffer, and 
+ * binds the label text to that subject so that it can 
+ * be updated from the core display task
+ * 
+ * @param subject 		Pointer to LVGL subject to be bound to label
+ * @param name			The name of the label
+ * @param y_offset		The y offset for label in single digit increments (0 for center, -1 for steps above, +1 for steps below)
+ */
+static void create_label(lv_subject_t *subject, char *name, int32_t y_offset)
+{
+	char buffer[32];
+	lv_obj_t *label = lv_label_create(lv_screen_active());
+	lv_obj_align(label, LV_ALIGN_CENTER, 0, (y_offset * Y_OFFSET_MULTIPLIER));
+	lv_subject_init_string(subject, buffer, NULL, sizeof(buffer), name);
+	lv_label_bind_text(label, subject, "%s");
+}
+
+/**
+ * @brief Set up all of the components of the display outside of 
+ * full init function, single spot for customization
+ */
+static void populate_display(void)
+{
+	_lock_acquire(&lvgl_api_lock);
+	lv_color_t bg = {
+		.blue = 255,
+		.green = 0,
+		.red = 0,
+	};
+	lv_color_t text = {
+		.blue = 0,
+		.green = 255,
+		.red = 0,
+	};
+	lv_obj_set_style_bg_color(lv_screen_active(), bg, LV_PART_MAIN);
+
+	create_label(&callsign_subject, "callsign", -2);
+	create_label(&operator_subject, "operator", -1);
+	create_label(&aircraft_subject, "aircraft", 0);
+	create_label(&origin_subject, "origin", 1);
+	create_label(&destination_subject, "destination", 2);
+
+	lv_obj_set_style_text_color(lv_screen_active(), text, LV_PART_MAIN);
+	_lock_release(&lvgl_api_lock);
 }
 
 /****************************************************
@@ -301,52 +347,8 @@ esp_err_t display_init(void)
 
 	ESP_LOGI(TAG, "LVGL display has been fully configured");
 
-	// Set up display elements
-	_lock_acquire(&lvgl_api_lock);
-	lv_color_t bg = {
-		.blue = 255,
-		.green = 0,
-		.red = 0,
-	};
-	lv_color_t text = {
-		.blue = 0,
-		.green = 255,
-		.red = 0,
-	};
-	lv_obj_set_style_bg_color(lv_screen_active(), bg, LV_PART_MAIN);
-
-	char callsign_buffer[32];
-	lv_obj_t *callsign_label = lv_label_create(lv_screen_active());
-	lv_obj_align(callsign_label, LV_ALIGN_CENTER, 0, -60);
-	lv_subject_init_string(&callsign_subject, callsign_buffer, NULL, sizeof(callsign_buffer), "callsign");
-	lv_label_bind_text(callsign_label, &callsign_subject, "%s");
-
-	char operator_buffer[32];
-	lv_obj_t *operator_label = lv_label_create(lv_screen_active());
-	lv_obj_align(operator_label, LV_ALIGN_CENTER, 0, -30);
-	lv_subject_init_string(&operator_subject, operator_buffer, NULL, sizeof(operator_buffer), "operator");
-	lv_label_bind_text(operator_label, &operator_subject, "%s");
-
-	char aircraft_buffer[32];
-	lv_obj_t *aircraft_label = lv_label_create(lv_screen_active());
-	lv_obj_align(aircraft_label, LV_ALIGN_CENTER, 0, 0);
-	lv_subject_init_string(&aircraft_subject, aircraft_buffer, NULL, sizeof(aircraft_buffer), "aircraft");
-	lv_label_bind_text(aircraft_label, &aircraft_subject, "%s");
-
-	char origin_buffer[32];
-	lv_obj_t *origin_label = lv_label_create(lv_screen_active());
-	lv_obj_align(origin_label, LV_ALIGN_CENTER, 0, 30);
-	lv_subject_init_string(&origin_subject, origin_buffer, NULL, sizeof(origin_buffer), "origin");
-	lv_label_bind_text(origin_label, &origin_subject, "%s");
-
-	char destination_buffer[32];
-	lv_obj_t *destination_label = lv_label_create(lv_screen_active());
-	lv_obj_align(destination_label, LV_ALIGN_CENTER, 0, 60);
-	lv_subject_init_string(&destination_subject, destination_buffer, NULL, sizeof(destination_buffer), "destination");
-	lv_label_bind_text(destination_label, &destination_subject, "%s");
-
-	lv_obj_set_style_text_color(lv_screen_active(), text, LV_PART_MAIN);
-	_lock_release(&lvgl_api_lock);
+	// Populate the display with necessary components
+	populate_display();
 
 	// Create LVGL timer task
 	xTaskCreate(lvgl_timer_task, "lvgl_timer", 4 * 1024, NULL, 5, NULL);
