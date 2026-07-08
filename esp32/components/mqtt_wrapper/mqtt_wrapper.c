@@ -10,6 +10,7 @@
 
 #include "mqtt_wrapper.h"
 #include "lighting.h"
+#include "shared.h"
 
 // Logger tag
 static const char *TAG = "mqtt_wrapper";
@@ -20,26 +21,67 @@ static EventGroupHandle_t s_lighting_event_group = NULL;
 static QueueHandle_t s_flight_queue = NULL;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 
-typedef struct
-{
-    char callsign[32];
-    char operator[32];
-    char aircraft_type[32];
-    char origin[64];
-    char destination[64];
-    bool widebody;
-} flight_t;
-
 /****************************************************
  * Private function prototypes
  ****************************************************/
 
+static void handle_flight(esp_mqtt_event_t *event);
 static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
 
 /****************************************************
  * Private function definitions
  ****************************************************/
 
+/**
+ * @brief Function with all flight-specific handling logic
+ * 
+ * Checks the type of aircraft and sets appropriate lighting
+ * bits. Then proceeds to extract all JSON fields and publishes
+ * a flight handle to the shared queue for consumption by display
+ * 
+ * @param event     The MQTT event data with flight info
+ */
+static void handle_flight(esp_mqtt_event_t *event)
+{
+    // NOTE: IF PREVIOUS LIGHT IS ON, WE CAN UPDATE SCREEN BEFORE LIGHT IS OFF
+    cJSON *flight_json = cJSON_ParseWithLength(event->data, event->data_len);
+    cJSON *widebody = cJSON_GetObjectItem(flight_json, "widebody");
+
+    if (widebody->type == cJSON_True) {
+        ESP_LOGI(TAG, "Received message for widebody plane");
+        xEventGroupSetBits(s_lighting_event_group, WIDEBODY_BIT);
+    } else {
+        ESP_LOGI(TAG, "Received message for standard plane");
+        xEventGroupSetBits(s_lighting_event_group, STANDARD_BIT);
+    }
+
+    char *callsign = cJSON_GetObjectItem(flight_json, "callsign")->valuestring;
+    char *operator = cJSON_GetObjectItem(flight_json, "operator")->valuestring;
+    char *aircraft_type = cJSON_GetObjectItem(flight_json, "aircraft_type")->valuestring;
+    char *origin = cJSON_GetObjectItem(flight_json, "origin")->valuestring;
+    char *destination = cJSON_GetObjectItem(flight_json, "destination")->valuestring;
+    bool widebody_val = true ? widebody->type == cJSON_True : false;
+
+    flight_t flight;
+    strcpy(flight.callsign, callsign);
+    strcpy(flight.operator, operator);
+    strcpy(flight.aircraft_type, aircraft_type);
+    strcpy(flight.origin, origin);
+    strcpy(flight.destination, destination);
+    flight.widebody = widebody_val;
+
+    xQueueSend(s_flight_queue, &flight, portMAX_DELAY);
+    cJSON_Delete(flight_json);
+}
+
+/**
+ * @brief 
+ * 
+ * @param arg 
+ * @param event_base 
+ * @param event_id 
+ * @param event_data 
+ */
 static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     esp_mqtt_event_t *event = (esp_mqtt_event_t *)event_data;
@@ -67,44 +109,7 @@ static void mqtt_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "Received data!");
-
-            cJSON *flight_json = cJSON_ParseWithLength(event->data, event->data_len);
-            cJSON *widebody = cJSON_GetObjectItem(flight_json, "widebody");
-
-            if (widebody->type == cJSON_True) {
-                ESP_LOGI(TAG, "Received message for widebody plane");
-                xEventGroupSetBits(s_lighting_event_group, WIDEBODY_BIT);
-            } else {
-                ESP_LOGI(TAG, "Received message for standard plane");
-                xEventGroupSetBits(s_lighting_event_group, STANDARD_BIT);
-            }
-
-            /**
-             * Have a classic C memory problem here. My flight struct is a bunch
-             * of char pointers, and so my struct size is the size of x pointers
-             * which are each 4 bytes (32 bits). But I'm sending pointers. So when
-             * that gets received the actual memory at that pointer address is gone
-             * because we cJSON delete. So we need either char[] maybe w/ strcpy
-             * or some ack that allows us to free the memory
-             */
-
-            char *callsign = cJSON_GetObjectItem(flight_json, "callsign")->valuestring;
-            char *operator = cJSON_GetObjectItem(flight_json, "operator")->valuestring;
-            char *aircraft_type = cJSON_GetObjectItem(flight_json, "aircraft_type")->valuestring;
-            char *origin = cJSON_GetObjectItem(flight_json, "origin")->valuestring;
-            char *destination = cJSON_GetObjectItem(flight_json, "destination")->valuestring;
-            bool widebody_val = true ? widebody->type == cJSON_True : false;
-
-            flight_t flight;
-            strcpy(flight.callsign, callsign);
-            strcpy(flight.operator, operator);
-            strcpy(flight.aircraft_type, aircraft_type);
-            strcpy(flight.origin, origin);
-            strcpy(flight.destination, destination);
-            flight.widebody = widebody_val;
-
-            xQueueSend(s_flight_queue, &flight, portMAX_DELAY);
-            cJSON_Delete(flight_json);
+            handle_flight(event);
             break;
 
         case MQTT_EVENT_ERROR:

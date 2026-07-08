@@ -9,22 +9,13 @@
 #include "mqtt_wrapper.h"
 #include "lighting.h"
 #include "display.h"
+#include "shared.h"
 
 // Logger tag
 static const char *TAG = "app_main";
 
 // Queue
 QueueHandle_t flight_queue;
-
-typedef struct
-{
-    char callsign[32];
-    char operator[32];
-    char aircraft_type[32];
-    char origin[64];
-    char destination[64];
-    bool widebody;
-} flight_t;
 
 void app_main(void)
 {
@@ -100,6 +91,7 @@ void app_main(void)
         abort();
     }
 
+    // TODO: Abstract bit set waits to method in mqtt wrapper like network wrapper
     // Start MQTT client and ensure necessary bits get set
     esp_ret = mqtt_start(mqtt_event_group, lighting_event_group, flight_queue);
     if (esp_ret != ESP_OK) {
@@ -126,21 +118,14 @@ void app_main(void)
         abort();
     }
 
-    // Create the lighting task
-    // TaskHandle_t lighting_handle;
-    // xTaskCreate(lighting_task,
-    //             "lighting_task",
-    //             4096,
-    //             (void *)lighting_event_group,
-    //             10,
-    //             &lighting_handle);
-
+    // Set up the display
     esp_ret = display_init();
     if (esp_ret != ESP_OK) {
         ESP_LOGE(TAG, "Display init process failed");
         abort();
     }
 
+    // Create the display task
     TaskHandle_t display_handle;
     xTaskCreate(display_task,
                 "display_task",
@@ -148,6 +133,15 @@ void app_main(void)
                 (void *)flight_queue,
                 5,
                 &display_handle);
+
+    // Create the lighting task
+    TaskHandle_t lighting_handle;
+    xTaskCreate(lighting_task,
+                "lighting_task",
+                4096,
+                (void *)lighting_event_group,
+                10,
+                &lighting_handle);
 
     // Infinite loop, program is now all tasks and event handlers
     while (1) {

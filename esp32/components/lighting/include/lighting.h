@@ -2,9 +2,8 @@
  * 
  */
 
-#define GREEN_LED_PIN       8
-#define RED_LED_PIN         9
-#define YELLOW_LED_PIN      10
+#define GREEN_LED_PIN       37
+#define RED_LED_PIN         38
 
 #define STANDARD_BIT			BIT0
 #define WIDEBODY_BIT			BIT1
