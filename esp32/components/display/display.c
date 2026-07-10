@@ -48,6 +48,7 @@ lv_subject_t operator_subject;
 lv_subject_t aircraft_subject;
 lv_subject_t origin_subject;
 lv_subject_t destination_subject;
+lv_subject_t area_subject;
 
 /****************************************************
  * Private function prototypes
@@ -214,6 +215,7 @@ static void populate_display(void)
 	create_label(&aircraft_subject, "aircraft", 0);
 	create_label(&origin_subject, "origin", 1);
 	create_label(&destination_subject, "destination", 2);
+	create_label(&area_subject, "area", 3);
 
 	lv_obj_set_style_text_color(lv_screen_active(), text, LV_PART_MAIN);
 	_lock_release(&lvgl_api_lock);
@@ -365,11 +367,13 @@ void display_task(void *pvParameters)
 		flight_t flight;
 		if (xQueueReceive(flight_queue, &flight, portMAX_DELAY)) {
 			_lock_acquire(&lvgl_api_lock);
+			// TODO: I feel like all of this can be improved so updates are easier?
 			lv_subject_copy_string(&callsign_subject, flight.callsign);
 			lv_subject_copy_string(&operator_subject, flight.operator);
 			lv_subject_copy_string(&aircraft_subject, flight.aircraft_type);
 			lv_subject_copy_string(&origin_subject, flight.origin);
 			lv_subject_copy_string(&destination_subject, flight.destination);
+			lv_subject_copy_string(&area_subject, flight.area);
 			_lock_release(&lvgl_api_lock);
 		}
 	}

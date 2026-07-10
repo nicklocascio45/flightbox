@@ -7,5 +7,6 @@ typedef struct
     char aircraft_type[32];
     char origin[64];
     char destination[64];
+    char area[8];
     bool widebody;
 } flight_t;
