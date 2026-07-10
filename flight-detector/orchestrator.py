@@ -7,20 +7,8 @@ from dotenv import load_dotenv
 from clients import OpenSkyClient, FlightAwareClient, PlanespottersClient
 from comms import Mqtt
 from utils import logger, FlightCache
-from models import NotificationDetails
+from models import FlightAwareFlight
 from config import (
-    AOI_LAT_MIN,
-    AOI_LAT_MAX,
-    AOI_LNG_MIN,
-    AOI_LNG_MAX,
-    ALT_AOI_LAT_MIN, # temp
-    ALT_AOI_LAT_MAX, # temp
-    ALT_AOI_LNG_MIN, # temp
-    ALT_AOI_LNG_MAX, # temp
-    DEP_AOI_LAT_MIN, # temp
-    DEP_AOI_LAT_MAX, # temp
-    DEP_AOI_LNG_MIN, # temp
-    DEP_AOI_LNG_MAX, # temp
     DETECTION_INTERVAL_SECONDS,
 )
 
@@ -34,9 +22,9 @@ want to burn through API calls when I'm not around. So when I get home I
 can press a button on my device and that will start firing API calls
 """
 
-def _show_details(details: NotificationDetails, photo_url: str):
-    logger.info(f"{details.callsign} should be in your field of view")
-    logger.info(f"{details.operator} {details.aircraft_type} ({'widebody' if details.widebody else 'standard'}): {details.origin} -> {details.destination}")
+def _show_details(flight: FlightAwareFlight, photo_url: str):
+    logger.info(f"{flight.ident} should be in your field of view (Area: {flight.area})")
+    logger.info(f"{flight.operator} {flight.aircraft_type} ({'widebody' if flight.widebody else 'standard'}): {flight.origin.name} -> {flight.destination.name}")
     logger.info(f"Image: {photo_url}")
 
 
@@ -44,17 +32,17 @@ def detect(
         opensky_client: OpenSkyClient, 
         flightaware_client: FlightAwareClient, 
         planespotters_client: PlanespottersClient, 
-        mqtt: Mqtt
+        mqtt: Mqtt,
     ):
     """
     Run the detection process
+    1. Search through my system's flights and check boxes
+    2. Check if we've already found flight
+    3. If new flight, get details
+    4. If details are found, pull photo
+    5. Log all flight info and send to MQTT broker
     """
-    state_vectors = opensky_client.search_box(
-        lat_min=DEP_AOI_LAT_MIN,
-        lng_min=DEP_AOI_LNG_MIN,
-        lat_max=DEP_AOI_LAT_MAX,
-        lng_max=DEP_AOI_LNG_MAX,
-    )
+    state_vectors = opensky_client.search_own_box()
 
     for sv in state_vectors:
         if sv.callsign in flight_cache.detected:
@@ -64,8 +52,8 @@ def detect(
         flight = flightaware_client.get_flight_details(sv=sv)
         if flight is not None:
             photo_url = planespotters_client.get_plane_photo(sv=sv)
-            _show_details(flight.notification_details, photo_url)
-            mqtt.flight_notify(flight.notification_details)
+            _show_details(flight, photo_url)
+            mqtt.flight_notify(flight)
 
 
 def orchestrate_detection():

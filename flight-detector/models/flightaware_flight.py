@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from .search import Area
+
 
 @dataclass
 class Airport:
@@ -11,16 +13,6 @@ class Airport:
     name: str
     city: str
     airport_info_url: str
-
-
-@dataclass
-class NotificationDetails:
-    callsign: str
-    operator: str
-    aircraft_type: str
-    origin: str
-    destination: str
-    widebody: bool = field(init=False)
 
 
 @dataclass
@@ -78,7 +70,8 @@ class FlightAwareFlight:
     terminal_origin: str
     terminal_destination: str
     type: str
-    notification_details: NotificationDetails = field(init=False)
+    area: Area = field(init=False)
+    widebody: bool = field(init=False)
 
     def __post_init__(self):
         if isinstance(self.origin, dict):
@@ -86,11 +79,3 @@ class FlightAwareFlight:
 
         if isinstance(self.destination, dict):
             self.destination = Airport(**self.destination)
-
-        self.notification_details = NotificationDetails(
-            self.ident,
-            self.operator,
-            self.aircraft_type,
-            self.origin.name,
-            self.destination.name
-        )
