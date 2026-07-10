@@ -60,6 +60,7 @@ static void handle_flight(esp_mqtt_event_t *event)
     char *aircraft_type = cJSON_GetObjectItem(flight_json, "aircraft_type")->valuestring;
     char *origin = cJSON_GetObjectItem(flight_json, "origin")->valuestring;
     char *destination = cJSON_GetObjectItem(flight_json, "destination")->valuestring;
+    char *area = cJSON_GetObjectItem(flight_json, "area")->valuestring;
     bool widebody_val = true ? widebody->type == cJSON_True : false;
 
     flight_t flight;
@@ -68,6 +69,7 @@ static void handle_flight(esp_mqtt_event_t *event)
     strcpy(flight.aircraft_type, aircraft_type);
     strcpy(flight.origin, origin);
     strcpy(flight.destination, destination);
+    strcpy(flight.area, area);
     flight.widebody = widebody_val;
 
     xQueueSend(s_flight_queue, &flight, portMAX_DELAY);

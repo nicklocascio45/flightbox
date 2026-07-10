@@ -7,8 +7,6 @@
 
 #define STANDARD_BIT			BIT0
 #define WIDEBODY_BIT			BIT1
-#define WIDEBODY_ALT_BIT		BIT2
-#define WARNING_BIT				BIT3
 
 /**
  * @brief The core driver for lighting functionality
