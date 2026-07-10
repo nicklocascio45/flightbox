@@ -45,11 +45,6 @@ class FlightAwareClient:
         """
         Helper responsible for resetting daily request limit and
         checking that we're good on requests for the day
-
-        NOTE: This is limited to a per-run basis. If we kill a run
-        at 29 requests and restart, our request count for the day 
-        also resets. API doesn't readily provide daily request count
-        in the response unfortunately
         """
         if datetime.today().date() > self.request_tracking_day:
             logger.info("Resetting daily FlightAware request count")
@@ -58,7 +53,7 @@ class FlightAwareClient:
             return False
 
         if self.daily_request_count == FLIGHTAWARE_DAILY_LIMIT:
-            logger.warning("Maximum number of daily FlightAware requests have been used, skipping")
+            logger.error("Maximum number of daily FlightAware requests have been used, skipping")
             return True
         elif self.daily_request_count >= FLIGHTAWARE_DAILY_LIMIT * 0.8:
             logger.warning("80% or more of daily FlightAware requests have been used")
@@ -104,22 +99,21 @@ class FlightAwareClient:
             logger.warning(f"No en route flights found for {sv.callsign}")
             return None
 
-        # Convert plane and airline to friendly names
+        # Add area to flight info
+        fa_flight.area = sv.area
+
+        # Convert plane and airline to friendly names, add widebody flag
         for plane in self.planes:
             if fa_flight.aircraft_type == plane.icao:
-                # TODO: better way to handle? idk if notification details dataclass is best approach here
                 fa_flight.aircraft_type = plane.name
-                fa_flight.notification_details.aircraft_type = plane.name
 
                 if plane.widebody == "Y":
-                    fa_flight.notification_details.widebody = True
+                    fa_flight.widebody = True
                 else:
-                    fa_flight.notification_details.widebody = False
+                    fa_flight.widebody = False
 
         for airline in self.airlines:
             if fa_flight.operator_icao == airline.icao:
-                # TODO: better way to handle? idk if notification details dataclass is best approach here
                 fa_flight.operator = airline.name
-                fa_flight.notification_details.operator = airline.name
 
         return fa_flight

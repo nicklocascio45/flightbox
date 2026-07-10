@@ -2,11 +2,12 @@ from datetime import datetime, timedelta
 
 import requests
 
-from models import StateVector
+from models import StateVector, Area
 from config import (
     OPENSKY_BASE_URL,
     OPENSKY_TOKEN_URL,
     OPENSKY_TOKEN_REFRESH_MARGIN,
+    SEARCH_AREAS,
 )
 
 
@@ -19,9 +20,6 @@ class OpenSkyClient:
         self.base_url = OPENSKY_BASE_URL
         self.token: str = None
         self.expires_at: datetime = None
-
-        # TODO: want some sort of watcher on this so we don't go over?
-        self.daily_remaining = 4000
 
     def _get_token(self) -> str:
         """
@@ -78,5 +76,44 @@ class OpenSkyClient:
             # TODO: add more filtering on altitude / type (maybe not possible)
             state_vectors = [StateVector(*state) for state in states]
             return [sv for sv in state_vectors if not sv.on_ground]
+        else:
+            return []
+
+    def _filter_own_box(self, state_vectors: list[StateVector]) -> list[StateVector]:
+        filtered_vectors = []
+        # TODO: Clean this up, want to focus on firmware right now though
+        for sv in state_vectors:
+            track = sv.true_track
+            lat = sv.latitude
+            lng = sv.longitude
+
+            for area, coords in SEARCH_AREAS.items():
+                if area == Area.NORTH and (track > coords.track_max_deg or track < coords.track_min_deg):
+                    if lat > coords.lat_min and lat < coords.lat_max and lng > coords.lng_min and lng < coords.lng_max:
+                        sv.area = area
+                        filtered_vectors.append(sv)
+                elif track > coords.track_min_deg and track < coords.track_max_deg:
+                    if lat > coords.lat_min and lat < coords.lat_max and lng > coords.lng_min and lng < coords.lng_max:
+                        sv.area = area
+                        filtered_vectors.append(sv)
+
+        return filtered_vectors
+
+    def search_own_box(self) -> list[StateVector]:
+        """
+        Search own receiver for flights and return all state vectors
+        """
+        response = requests.get(
+            url=f"{self.base_url}/states/own",
+            headers={"Authorization": f"Bearer {self._get_token()}"}
+        )
+        self.daily_remaining = response.headers.get("X-Rate-Limit-Remaining")
+        response.raise_for_status()
+        response = response.json()
+
+        states = response["states"]
+        if states:
+            state_vectors = [StateVector(*state, category=0) for state in states]
+            return self._filter_own_box(state_vectors)
         else:
             return []

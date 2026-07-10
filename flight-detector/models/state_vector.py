@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from .search import Area
 
 
 @dataclass
@@ -21,6 +23,7 @@ class StateVector:
     spi: bool
     position_source: int
     category: int
+    area: Area = field(init=False)
 
     def __post_init__(self):
         self.callsign = self.callsign.strip()
