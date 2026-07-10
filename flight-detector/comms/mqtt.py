@@ -2,7 +2,7 @@ import json
 
 import paho.mqtt.client as mqtt
 
-from models import NotificationDetails
+from models import FlightAwareFlight
 from utils import logger
 from config import (
     NOTIFY_TOPIC,
@@ -59,8 +59,16 @@ class Mqtt:
         
         return 0
 
-    def flight_notify(self, details: NotificationDetails):
-        payload = details.__dict__
+    def flight_notify(self, flight: FlightAwareFlight):
+        payload = {
+            "callsign": flight.ident,
+            "operator": flight.operator,
+            "aircraft_type": flight.aircraft_type,
+            "origin": flight.origin.name,
+            "destination": flight.destination.name,
+            "area": flight.area.value,
+            "widebody": flight.widebody,
+        }
         self.client.publish(
             topic=NOTIFY_TOPIC,
             payload=json.dumps(payload),

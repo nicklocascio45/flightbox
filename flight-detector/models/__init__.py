@@ -1,12 +1,14 @@
 from .state_vector import StateVector
-from .flightaware_flight import FlightAwareFlight, NotificationDetails
+from .flightaware_flight import FlightAwareFlight
 from .plane import Plane
 from .airline import Airline
+from .search import SearchCoords, Area
 
 __all__ = [
     "StateVector",
     "FlightAwareFlight",
-    "NotificationDetails",
     "Plane",
     "Airline",
+    "SearchCoords",
+    "Area",
 ]
